@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f7f9fc" />
+  <title>RCM Converter | Simple media conversion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+
+<body>
+  <header class="site-header">
+    <nav class="nav container" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="RCM Converter home">
+        <span class="brand-icon" aria-hidden="true">
+          <img class="logo-for-light" src="/static/img/image_white.png" alt="" />
+          <img class="logo-for-dark" src="/static/img/image_dark.png" alt="" />
+        </span>
+        <span>RCM <b>Converter</b></span>
+      </a>
+      <div class="nav-actions">
+        <a href="#how-it-works">How it works</a>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode"
+          aria-pressed="false">
+          <span class="theme-icon" aria-hidden="true">&#x263E;</span>
+          <span class="theme-label">Dark mode</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero container">
+      <div class="hero-copy">
+        <p class="eyebrow">FAST &bull; FREE &bull; EASY</p>
+        <h1>Convert media in a few clicks.</h1>
+        <p>Paste an authorized media link, select your preferred format, and download the converted result. No complicated settings.</p>
+      </div>
+
+      <section class="converter-card" aria-labelledby="converter-title">
+        <div class="card-heading">
+          <div>
+            <h2 id="converter-title">New conversion</h2>
+            <p>Choose a format, then add your media link.</p>
+          </div>
+          <span class="secure-note"><i></i> Private &amp; secure</span>
+        </div>
+
+        <div class="field-group">
+          <label for="urlInput">Media link</label>
+          <div class="url-field">
+            <span aria-hidden="true">&#8599;</span>
+            <input id="urlInput" type="url" placeholder="Paste a YouTube, Facebook, or TikTok link" autocomplete="off" />
+          </div>
+          <p class="source-note" id="sourceText" aria-live="polite">Ready for your link</p>
+        </div>
+
+        <div class="settings-grid">
+          <div class="field-group">
+            <label>Convert to</label>
+            <div class="format-options" role="group" aria-label="Output format">
+              <button class="format active" type="button" data-format="mp4"
+                aria-pressed="true"><strong>MP4</strong><span>Video</span></button>
+              <button class="format" type="button" data-format="mp3"
+                aria-pressed="false"><strong>MP3</strong><span>Audio</span></button>
+            </div>
+          </div>
+          <div class="field-group" id="qualityWrap">
+            <label for="quality">Video quality</label>
+            <div class="select-wrap"><select id="quality">
+                <option value="144p">144p</option>
+                <option value="360p">360p</option>
+                <option value="480p">480p</option>
+                <option value="720p">720p HD</option>
+                <option value="1080p" selected>1080p Full HD</option>
+              </select></div>
+          </div>
+          <div class="field-group" id="audioWrap" hidden>
+            <label for="audioQuality">Audio quality</label>
+            <div class="select-wrap"><select id="audioQuality">
+                <option value="128 kbps">128 kbps</option>
+                <option value="192 kbps">192 kbps</option>
+                <option value="256 kbps">256 kbps</option>
+                <option value="320 kbps" selected>320 kbps</option>
+              </select></div>
+          </div>
+        </div>
+
+        <button class="convert-button" id="convertBtn" type="button"><span>Start conversion</span><b
+            aria-hidden="true">&rarr;</b></button>
+        <p class="fine-print">Only convert media that you own or have permission to use.</p>
+      </section>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="features" id="how-it-works">
+      <div class="container">
+        <p class="eyebrow">HOW IT WORKS</p>
+        <h2>Simple from start to finish.</h2>
+        <div class="feature-grid">
+          <article><span>1</span>
+            <h3>Add a link</h3>
+            <p>Copy and paste a link for media you own or are authorized to save.</p>
+          </article>
+          <article><span>2</span>
+            <h3>Select a format</h3>
+            <p>Pick MP4 for video or MP3 for audio, plus quality.</p>
+          </article>
+          <article><span>3</span>
+            <h3>Convert</h3>
+            <p>Start your request and download when it is ready.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer container">
+    <a class="brand" href="#top"><span class="brand-icon" aria-hidden="true"><img class="logo-for-light" src="/static/img/image_white.png" alt="" /><img class="logo-for-dark" src="/static/img/image_dark.png" alt="" /></span><span>RCM
+        <b>Converter</b></span></a>
+    <p>&copy; <span id="year"></span> RCM Converter. Use responsibly.</p>
+  </footer>
+  <script src="/static/script.js"></script>
+</body>
+
+</html>
