@@ -5,24 +5,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#f7f9fc" />
-  <title>RCM Converter | Simple media conversion</title>
+  <title>RCN Converter | Simple media conversion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/style/styles.css?v=3.0" />
 </head>
 
 <body>
   <header class="site-header">
     <nav class="nav container" aria-label="Main navigation">
-      <a class="brand" href="#top" aria-label="RCM Converter home">
+      <a class="brand" href="#top" aria-label="RCN Converter home">
         <span class="brand-icon" aria-hidden="true">
           <img class="logo-for-light" src="/static/img/image_white.png" alt="" />
           <img class="logo-for-dark" src="/static/img/image_dark.png" alt="" />
         </span>
-        <span>RCM <b>Converter</b></span>
+        <span>RCN <b>Converter</b></span>
       </a>
       <div class="nav-actions">
         <a href="#how-it-works">How it works</a>
@@ -59,6 +59,16 @@
             <input id="urlInput" type="url" placeholder="Paste a YouTube, Facebook, or TikTok link" autocomplete="off" />
           </div>
           <p class="source-note" id="sourceText" aria-live="polite">Ready for your link</p>
+          <div class="playlist-banner" id="playlistBanner" hidden>
+            <div class="playlist-banner-info">
+              <span class="playlist-banner-icon" aria-hidden="true">&#9776;</span>
+              <div>
+                <strong>YouTube Playlist detected</strong>
+                <p>Preview videos to download individually or download all as a ZIP archive.</p>
+              </div>
+            </div>
+            <button class="pill-btn" id="loadPlaylistBtn" type="button">Load Playlist</button>
+          </div>
         </div>
 
         <div class="settings-grid">
@@ -97,6 +107,110 @@
         <p class="fine-print">Only convert media that you own or have permission to use.</p>
       </section>
       <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <!-- Playlist Popup Modal -->
+      <div class="modal-backdrop" id="playlistModal" hidden style="display: none;">
+        <div class="playlist-modal" role="dialog" aria-modal="true" aria-labelledby="playlistModalTitle">
+          <!-- Modal Header -->
+          <div class="playlist-modal-header">
+            <div class="playlist-heading-info">
+              <span class="playlist-tag">YOUTUBE PLAYLIST</span>
+              <h2 id="playlistModalTitle">YouTube Playlist</h2>
+              <p class="playlist-sub" id="playlistModalSub">Loading videos from YouTube...</p>
+            </div>
+            <button class="btn-close" id="closePlaylistModalBtn" type="button" aria-label="Close playlist popup">&times;</button>
+          </div>
+
+          <!-- Loading State Inside Modal -->
+          <div class="modal-loading-state" id="modalLoadingState">
+            <div class="spinner"></div>
+            <p>Fetching playlist videos from YouTube...</p>
+          </div>
+
+          <!-- Content Body Inside Modal -->
+          <div class="modal-body-content" id="modalBodyContent" hidden>
+            <!-- Top Options & Big Choice Buttons -->
+            <div class="modal-action-bar">
+              <div class="modal-format-bar">
+                <span class="choice-tag">Format:</span>
+                <div class="modal-format-toggle" role="group" aria-label="Modal format">
+                  <button type="button" class="modal-format-btn active" data-format="mp4">MP4 Video</button>
+                  <button type="button" class="modal-format-btn" data-format="mp3">MP3 Audio</button>
+                </div>
+                <div class="modal-select-wrap" id="modalQualityWrap">
+                  <select id="modalQualitySelect">
+                    <option value="144p">144p</option>
+                    <option value="360p">360p</option>
+                    <option value="480p">480p</option>
+                    <option value="720p">720p HD</option>
+                    <option value="1080p" selected>1080p Full HD</option>
+                  </select>
+                </div>
+                <div class="modal-select-wrap" id="modalAudioQualityWrap" hidden>
+                  <select id="modalAudioQualitySelect">
+                    <option value="128 kbps">128 kbps</option>
+                    <option value="192 kbps">192 kbps</option>
+                    <option value="256 kbps">256 kbps</option>
+                    <option value="320 kbps" selected>320 kbps</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Two Primary Choices -->
+              <div class="modal-download-choices">
+                <button class="choice-card-btn primary" id="downloadAllBtn" type="button">
+                  <span class="choice-icon" aria-hidden="true">&#128230;</span>
+                  <div class="choice-text">
+                    <strong>Download Whole Playlist</strong>
+                    <span id="downloadAllSub">All videos in 1 ZIP</span>
+                  </div>
+                </button>
+                <button class="choice-card-btn secondary" id="downloadSelectedBtn" type="button">
+                  <span class="choice-icon" aria-hidden="true">&#10003;</span>
+                  <div class="choice-text">
+                    <strong>Download Selected</strong>
+                    <span id="downloadSelectedSub">0 videos selected</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Select All & Hint Bar -->
+            <div class="playlist-toolbar">
+              <label class="checkbox-wrap" for="modalSelectAll">
+                <input type="checkbox" id="modalSelectAll" checked />
+                <span>Select all videos (<b id="modalSelectedCount">0</b>/<span id="modalTotalVideosCount">0</span>)</span>
+              </label>
+              <span class="toolbar-hint">Or click Download next to any individual video below</span>
+            </div>
+
+            <!-- Scrollable Video List -->
+            <div class="playlist-scroll-container">
+              <div class="playlist-items" id="playlistModalItems">
+                <!-- Dynamically populated video items -->
+              </div>
+            </div>
+          </div>
+
+          <!-- In-Modal Progress View (Active when downloading batch ZIP) -->
+          <div class="modal-progress-view" id="modalProgressView" hidden>
+            <div class="progress-view-inner">
+              <h3 id="progressViewTitle">Downloading Playlist</h3>
+              <p class="modal-sub" id="progressViewSub">Starting batch download...</p>
+              <div class="progress-track">
+                <div class="progress-bar" id="modalProgressBar" style="width: 0%"></div>
+              </div>
+              <div class="progress-labels">
+                <span id="modalProgressPercent">0%</span>
+                <span id="modalProgressStatus">Processing...</span>
+              </div>
+              <div class="modal-actions">
+                <button class="modal-cancel-btn" id="cancelZipBtn" type="button">Cancel Download</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="features" id="how-it-works">
@@ -122,11 +236,10 @@
   </main>
 
   <footer class="footer container">
-    <a class="brand" href="#top"><span class="brand-icon" aria-hidden="true"><img class="logo-for-light" src="/static/img/image_white.png" alt="" /><img class="logo-for-dark" src="/static/img/image_dark.png" alt="" /></span><span>RCM
-        <b>Converter</b></span></a>
-    <p>&copy; <span id="year"></span> RCM Converter. Use responsibly.</p>
+    <!-- <a class="brand" href="#top"><span class="brand-icon" aria-hidden="true"><img class="logo-for-light" src="/static/img/image_white.png" alt="" /><img class="logo-for-dark" src="/static/img/image_dark.png" alt="" /></span><span>RCN
+        <b>Converter</b></span></a> -->
+    <p>&copy; <span id="year"></span> RCN Converter. Use responsibly.</p>
   </footer>
-  <script src="/static/script.js"></script>
+  <script src="/static/script/script.js?v=3.0"></script>
 </body>
-
 </html>
