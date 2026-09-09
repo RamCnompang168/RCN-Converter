@@ -85,7 +85,7 @@ llvmlite==0.45.1
 MarkupSafe==3.0.3
 matplotlib==3.10.6
 matplotlib-inline==0.1.7
-MetaTrader5==5.0.5260
+# MetaTrader5==5.0.5260
 mistune==3.3.3
 multidict==6.6.4
 mypy_extensions==1.1.0
