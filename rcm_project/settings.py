@@ -14,7 +14,8 @@ SECRET_KEY = os.environ.get(
     "slh*2!n6@r7a(0ap4%baua9xzt*!xuj61p!_-06mkzxu76&^ld"
 )
 
-DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
+# Render sets RENDER=true in its environment. Default DEBUG to False on Render, True locally.
+DEBUG = os.environ.get("DEBUG", "False" if os.environ.get("RENDER") else "True").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
@@ -22,6 +23,27 @@ ALLOWED_HOSTS = [
     "testserver",
     ".onrender.com",
 ]
+
+RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+extra_hosts = os.environ.get("ALLOWED_HOSTS")
+if extra_hosts:
+    ALLOWED_HOSTS.extend([h.strip() for h in extra_hosts.split(",") if h.strip()])
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.onrender.com",
+    "http://127.0.0.1",
+    "http://localhost",
+]
+
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+
+extra_origins = os.environ.get("CSRF_TRUSTED_ORIGINS")
+if extra_origins:
+    CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in extra_origins.split(",") if o.strip()])
 
 
 # =========================
@@ -96,9 +118,13 @@ USE_TZ = True
 # Static files
 # =========================
 
-STATIC_URL = "/"
+STATIC_URL = "/static/"
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 
 STORAGES = {
     "default": {
@@ -115,7 +141,8 @@ STORAGES = {
 # =========================
 
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True").lower() == "true"
     CSRF_COOKIE_SECURE = True
 
     SECURE_HSTS_SECONDS = 31536000
@@ -123,7 +150,7 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
 
 
-# =========================z``
+# =========================
 # Default primary key
 # =========================
 

@@ -1,11 +1,13 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
+from django.views.generic.base import RedirectView
 
 from converter import views
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("favicon.ico", RedirectView.as_view(url="/static/img/image_dark.png", permanent=True)),
     path("api/convert/", views.convert_media, name="convert_media"),
     path("api/playlist/info/", views.playlist_info, name="playlist_info"),
     path("api/playlist/download-zip/", views.playlist_download_zip, name="playlist_download_zip"),
@@ -15,4 +17,4 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])

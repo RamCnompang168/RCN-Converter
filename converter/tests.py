@@ -59,6 +59,8 @@ class ConverterRouteTests(SimpleTestCase):
         self.assertContains(home_response, "RCN Converter")
         for asset in ("style/styles.css", "script/script.js", "img/image_dark.png", "img/image_white.png"):
             self.assertIsNotNone(finders.find(asset), msg=f"Missing static asset: {asset}")
+        favicon_response = self.client.get("/favicon.ico")
+        self.assertEqual(favicon_response.status_code, 301)
 
     def test_rejects_unsupported_link(self):
         response = self.post_conversion(url="https://example.com/media", output_format="mp3", quality="128 kbps")
@@ -75,7 +77,7 @@ class ConverterRouteTests(SimpleTestCase):
             self.assertEqual(response["Content-Type"], "audio/mpeg")
             self.assertIn(".mp3", response["Content-Disposition"])
             self.assertEqual(b"".join(response.streaming_content), b"converted-media")
-            self.assertTrue(FakeDownloader.last_options["ffmpeg_location"].lower().endswith(".exe"))
+            self.assertTrue("ffmpeg" in FakeDownloader.last_options["ffmpeg_location"].lower())
             response.close()
 
     def test_creates_mp4_download_response(self):
