@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 import threading
@@ -29,6 +30,19 @@ MAX_PLAYLIST_ITEMS = 30
 
 playlist_jobs: dict[str, dict] = {}
 playlist_jobs_lock = threading.Lock()
+
+
+class CleanupFileResponse(FileResponse):
+    """FileResponse that immediately cleans up the temporary job directory when streaming finishes."""
+
+    def __init__(self, *args, cleanup_dir: Path | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cleanup_dir = cleanup_dir
+
+    def close(self):
+        super().close()
+        if self._cleanup_dir and self._cleanup_dir.exists():
+            delete_job(self._cleanup_dir)
 
 
 @ensure_csrf_cookie
@@ -78,16 +92,103 @@ def delete_job(job_dir: Path) -> None:
     shutil.rmtree(job_dir, ignore_errors=True)
 
 
-def get_ytdl_options(job_dir: Path, output_format: str, quality: str, ffmpeg_executable: str) -> dict:
-    options = {
-        "outtmpl": str(job_dir / "%(title).80s-%(id)s.%(ext)s"),
-        "noplaylist": True,
+def format_ytdl_error(error: Exception) -> str:
+    """Classify yt-dlp exceptions into safe, user-friendly messages without exposing server internals."""
+    msg = str(error).lower()
+    if any(phrase in msg for phrase in (
+        "sign in to confirm you’re not a bot",
+        "sign in to confirm you're not a bot",
+        "confirm you’re not a bot",
+        "confirm you're not a bot",
+        "bot verification",
+        "use --cookies",
+    )):
+        return "YouTube temporarily rejected this request. Please try another video or try again later."
+    if any(phrase in msg for phrase in ("video unavailable", "this video has been removed", "not available")):
+        return "This video is unavailable or has been removed."
+    if any(phrase in msg for phrase in ("private video", "sign in if you've been granted access", "members-only")):
+        return "This video is private or requires authorization."
+    if any(phrase in msg for phrase in ("copyright", "blocked", "geographic restriction", "not available in your country")):
+        return "This video is blocked due to copyright or regional restrictions."
+    if "http error 429" in msg or "too many requests" in msg:
+        return "Too many requests to YouTube. Please wait a moment and try again."
+    return "The requested media could not be downloaded. Please verify the URL and try again."
+
+
+def get_youtube_cookies_path() -> Path | None:
+    """Locate or safely stage YouTube cookies without committing them to Git."""
+    custom_path = os.environ.get("YOUTUBE_COOKIES_FILE")
+    if custom_path and Path(custom_path).is_file():
+        return Path(custom_path)
+
+    secret_file = Path("/etc/secrets/youtube_cookies.txt")
+    if secret_file.is_file():
+        return secret_file
+
+    cookies_content = os.environ.get("YOUTUBE_COOKIES_CONTENT")
+    if cookies_content:
+        cache_path = WORK_DIR / ".youtube_cookies.txt"
+        try:
+            WORK_DIR.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(cookies_content.strip(), encoding="utf-8")
+            try:
+                os.chmod(cache_path, 0o600)
+            except OSError:
+                pass
+            return cache_path
+        except OSError as e:
+            logger.warning("Failed writing cookies cache: %s", e)
+
+    return None
+
+
+def get_base_ytdl_options() -> dict:
+    """Build shared base options for yt-dlp including anti-bot mechanisms, cookies, and JS runtimes."""
+    options: dict = {
         "quiet": True,
         "no_warnings": True,
         "retries": 2,
         "socket_timeout": 30,
-        "ffmpeg_location": ffmpeg_executable,
     }
+
+    # Auto-detect JavaScript runtime for YouTube signature/n-param solving
+    js_runtimes = {}
+    if shutil.which("node"):
+        js_runtimes["node"] = {}
+    if shutil.which("deno"):
+        js_runtimes["deno"] = {}
+    if js_runtimes:
+        options["js_runtimes"] = js_runtimes
+
+    # PO Token Provider support
+    pot_url = os.environ.get("YOUTUBE_POT_PROVIDER_URL") or os.environ.get("POT_PROVIDER_URL")
+    if pot_url:
+        options["extractor_args"] = {
+            "youtubepot-bgutilhttp": {
+                "base_url": [pot_url.strip()],
+            }
+        }
+
+    # Secure Cookie support
+    cookie_path = get_youtube_cookies_path()
+    if cookie_path and cookie_path.is_file():
+        options["cookiefile"] = str(cookie_path)
+
+    # Optional Forward / Residential Proxy
+    proxy = os.environ.get("YOUTUBE_PROXY")
+    if proxy:
+        options["proxy"] = proxy.strip()
+
+    return options
+
+
+def get_ytdl_options(job_dir: Path, output_format: str, quality: str, ffmpeg_executable: str) -> dict:
+    options = get_base_ytdl_options()
+    options.update({
+        "outtmpl": str(job_dir / "%(title).80s-%(id)s.%(ext)s"),
+        "noplaylist": True,
+        "ffmpeg_location": ffmpeg_executable,
+    })
     if output_format == "mp3":
         options.update({
             "format": "bestaudio/best",
@@ -134,10 +235,10 @@ def convert_media(request: HttpRequest):
     try:
         with yt_dlp.YoutubeDL(options) as downloader:
             downloader.extract_info(url, download=True)
-    except DownloadError as error:
-        logger.warning("yt-dlp could not download %s: %s", url, error)
+    except (DownloadError, ExtractorError) as error:
+        logger.warning("yt-dlp extraction failed for %s: %s", url, error)
         delete_job(job_dir)
-        return JsonResponse({"detail": "The source could not be downloaded. Check the Django terminal for the platform's exact reason."}, status=422)
+        return JsonResponse({"detail": format_ytdl_error(error)}, status=422)
     except Exception:
         logger.exception("Unexpected conversion failure for %s", url)
         delete_job(job_dir)
@@ -149,13 +250,15 @@ def convert_media(request: HttpRequest):
         return JsonResponse({"detail": "No compatible output was produced for this link."}, status=422)
 
     converted_file = files[0]
-    response = FileResponse(
+    response = CleanupFileResponse(
         converted_file.open("rb"),
+        cleanup_dir=job_dir,
         as_attachment=True,
         filename=converted_file.name,
         content_type="audio/mpeg" if output_format == "mp3" else "video/mp4",
     )
-    cleanup_timer = threading.Timer(15 * 60, delete_job, args=[job_dir])
+    # Safety timer in case streaming terminates abnormally
+    cleanup_timer = threading.Timer(10 * 60, delete_job, args=[job_dir])
     cleanup_timer.daemon = True
     cleanup_timer.start()
     return response
@@ -167,19 +270,18 @@ def playlist_info(request: HttpRequest):
     if not is_youtube_playlist_url(url):
         return JsonResponse({"detail": "Paste a valid YouTube playlist link."}, status=400)
 
-    options = {
+    options = get_base_ytdl_options()
+    options.update({
         "extract_flat": True,
-        "quiet": True,
-        "no_warnings": True,
         "skip_download": True,
         "playlistend": MAX_PLAYLIST_ITEMS,
-    }
+    })
     try:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=False)
     except (DownloadError, ExtractorError) as error:
         logger.warning("Could not fetch playlist info for %s: %s", url, error)
-        return JsonResponse({"detail": "Unable to load YouTube playlist. Make sure it is public or unlisted."}, status=422)
+        return JsonResponse({"detail": format_ytdl_error(error)}, status=422)
     except Exception:
         logger.exception("Unexpected failure fetching playlist info for %s", url)
         return JsonResponse({"detail": "An error occurred while loading the playlist."}, status=500)
@@ -227,6 +329,7 @@ def _run_playlist_zip_job(
     ffmpeg_executable = imageio_ffmpeg.get_ffmpeg_exe()
     options = get_ytdl_options(job_dir, output_format, quality, ffmpeg_executable)
     total = len(video_ids)
+    last_error_detail = None
 
     for idx, vid in enumerate(video_ids):
         video_url = f"https://www.youtube.com/watch?v={vid}"
@@ -247,6 +350,7 @@ def _run_playlist_zip_job(
                             playlist_jobs[job_id]["current_title"] = info.get("title", "")[:60]
         except Exception as err:
             logger.warning("Failed to download video %s in playlist job %s: %s", vid, job_id, err)
+            last_error_detail = format_ytdl_error(err)
             continue
 
     with playlist_jobs_lock:
@@ -261,7 +365,7 @@ def _run_playlist_zip_job(
         with playlist_jobs_lock:
             if job_id in playlist_jobs:
                 playlist_jobs[job_id]["status"] = "failed"
-                playlist_jobs[job_id]["error"] = "None of the selected videos could be downloaded."
+                playlist_jobs[job_id]["error"] = last_error_detail or "None of the selected videos could be downloaded."
         delete_job(job_dir)
         return
 
@@ -396,4 +500,3 @@ def playlist_cancel_job(request: HttpRequest, job_id: str):
     if job and job.get("job_dir"):
         delete_job(job["job_dir"])
     return JsonResponse({"ok": True})
-

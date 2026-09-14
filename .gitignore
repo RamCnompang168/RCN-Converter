@@ -30,6 +30,10 @@ env/
 .env
 .env.*
 !.env.example
+*cookies*.txt
+*.cookies
+secrets/
+/etc/secrets/
 
 
 # =========================

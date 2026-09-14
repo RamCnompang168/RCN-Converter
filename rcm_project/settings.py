@@ -5,6 +5,7 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+
 # =========================
 # Security
 # =========================
@@ -55,6 +56,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "converter",
 ]
+
 
 
 # =========================
@@ -144,6 +146,7 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True").lower() == "true"
     CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
 
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
